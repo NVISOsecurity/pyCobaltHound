@@ -370,10 +370,31 @@ def update_settings_dialog():
     aggressor.dbutton_action(dialog, "Update")
     aggressor.dialog_show(dialog)
 
+def check_settings():
+    messagebox = "Neo4j URL: " + settings["url"] + "\n"
+    
+    if settings["ignore_cache"]:
+        messagebox = messagebox + "Caching is disabled" + "\n"
+    else:
+        messagebox = messagebox + "Caching is enabled" + "\n"
+
+    if settings["notify"]:
+        messagebox = messagebox + "Notifications are enabled" + "\n"
+    else:
+        messagebox = messagebox + "Notifications are disabled" + "\n"
+
+    if settings["report"]:
+        messagebox = messagebox + "Reporting is enabled" + "\n"
+    else:
+        messagebox = messagebox + "Reporting is disabled" + "\n"
+    
+    aggressor.show_message(messagebox[:-1])
+
 menu = gui.popup('aggressor', callback=aggressor_empty_callback, children=[
     gui.menu('pyCobaltHound', children=[
         gui.insert_menu('pyCobaltHound_top'),
-        gui.item("Settings", callback=update_settings_dialog),
+        gui.item("Update settings", callback=update_settings_dialog),
+        gui.item("Check settings", callback=check_settings),
         gui.separator(),
         gui.item("Wipe cache", callback=wipe_cache_dialog),
         gui.item("Recalculate", callback=recalculate)
@@ -381,17 +402,7 @@ menu = gui.popup('aggressor', callback=aggressor_empty_callback, children=[
 ])
 
 gui.register(menu)
-
-# test event (remove)
-
-@events.event('update-check', official_only=False)
-def check():
-    engine.message("ignore: " + str(settings['ignore_cache']))
-    engine.message("report: " + str(settings['report']))
-    engine.message("url: " + settings['url'])
-    engine.message("notify: " + str(settings['report']))
-    engine.message(settings['headers'])
-
+        
 # Reacting to the "on credentials" event in Cobalt Strike
 @events.event('credentials')
 def credential_action(credentials):
