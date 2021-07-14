@@ -9,7 +9,6 @@ sys.path.insert(0, os.path.realpath(os.path.dirname(__file__)) + '/pycobalt')
 import requests
 import json
 import pickle
-import ctypes
 import asyncio
 import notify2
 import base64
@@ -31,19 +30,30 @@ from report import generate_report
 # Cache settings (uses seperate caches to prevent issues when using multiple teamservers)
 unique_id = (netaddr.IPAddress(aggressor.localip())).value
 cache_location = os.path.realpath(os.path.dirname(__file__)) + '/cache/pycobalthound-' + str(unique_id) + '.cache'
-engine.message(cache_location)
+settings_location = os.path.realpath(os.path.dirname(__file__)) + '/settings/pycobalthound-' + str(unique_id) + '.settings'
+engine.message(settings_location)
 reportpath = ""
 
 # Operator configurable settings (Neo4j connection + features)
-settings = {
-    'ignore_cache': False,
-    'report': True,
-    'notify': True,
-    'url': "http://localhost:7474/db/data/transaction/commit",
-    'headers': { "Accept": "application/json; charset=UTF-8",
+# Check if settings have been saved
+if os.path.isfile(settings_location):
+    try:
+        settings = pickle.load(open(settings_location, "rb"))
+        engine.message('Restored settings from: ' + settings_location)
+    except OSError:
+            engine.debug("Could not load the settings file")
+# If no settings were saved apply the defaults
+else:
+    settings = {
+        'ignore_cache': False,
+        'report': True,
+        'notify': True,
+        'url': "http://localhost:7474/db/data/transaction/commit",
+        'headers': { "Accept": "application/json; charset=UTF-8",
         "Content-Type": "application/json",
-    "Authorization": "bmVvNGo6Ymxvb2Rob3VuZA=="}
-}
+        "Authorization": "bmVvNGo6Ymxvb2Rob3VuZA=="
+        }
+    }
 
 # User cypher queries
 user_queries = [
@@ -326,7 +336,7 @@ def aggressor_empty_callback():
 
 def update_settings(dialog, button_name, values):
     global settings
-
+    engine.message(values)
     auth = (base64.b64encode((values["username"] + ":" + values["password"]).encode('ascii'))).decode('utf-8')
     settings['headers']['Authorization'] = auth
 
@@ -347,6 +357,16 @@ def update_settings(dialog, button_name, values):
     else:
         settings["report"] = True
 
+    if values['persistent'] == 'yes':
+        if not os.path.isdir(os.path.realpath(os.path.dirname(__file__)) + "/settings"):
+            os.makedirs(os.path.realpath(os.path.dirname(__file__)) + "/settings")
+        try:
+            engine.debug("Saving the settings to: " + settings_location)
+            pickle.dump(settings, open(settings_location, "wb"))
+        except OSError:
+            engine.error("Could not save cache!")
+        
+
     connection_test_wrapper()
 
 def update_settings_dialog():
@@ -356,7 +376,8 @@ def update_settings_dialog():
 		'url' : 'http://localhost:7474',
 		'ignore_cache' : "false",
 		'report' : "false",
-		'notify' : "false"
+		'notify' : "false",
+        'persistent': "yes"
     }
 
     dialog = aggressor.dialog("pyCobaltHound settings", drows, update_settings)
@@ -367,6 +388,7 @@ def update_settings_dialog():
     aggressor.drow_checkbox(dialog, "cachecheck", "Disable cache")
     aggressor.drow_checkbox(dialog, "notificationcheck", "Disable notifications")
     aggressor.drow_checkbox(dialog, "reportcheck", "Disable reporting")
+    aggressor.drow_combobox(dialog, "persistent", "Save settings persistently", ["yes", "no"])
     aggressor.dbutton_action(dialog, "Update")
     aggressor.dialog_show(dialog)
 
