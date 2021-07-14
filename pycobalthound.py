@@ -13,6 +13,7 @@ import ctypes
 import asyncio
 import notify2
 import base64
+import netaddr
 
 from aiohttp import ClientSession
 from requests.models import HTTPError
@@ -28,16 +29,16 @@ import pycobalt.gui as gui
 from report import generate_report
 
 # Cache settings (uses seperate caches to prevent issues when using multiple teamservers)
-unique_id = (ctypes.c_size_t(hash(aggressor.localip())).value)
+unique_id = engine.message((netaddr.IPAddress(aggressor.localip())).value)
 cache_location = os.path.realpath(os.path.dirname(__file__)) + '/pycobalthound-' + str(unique_id) + '.cache'
 ignore_cache = False
 
 # Report & notification settings 
-report = True # (to do, make operator configurable..)
+report = True
 reportpath = ""
 notify = True
 
-# Neo4j connection settings (to do, make operator configurable..)
+# Neo4j connection settings
 url = 'http://localhost:7474/db/data/transaction/commit'
 auth = "bmVvNGo6Ymxvb2Rob3VuZA=="
 headers = { "Accept": "application/json; charset=UTF-8",
@@ -297,6 +298,7 @@ def connection_test_wrapper():
         return False
 
 # register menu's and callbacks
+# wipe cache menu
 def wipe_cache(values):  
     if os.path.exists(cache_location):
         os.remove(cache_location)
@@ -307,6 +309,11 @@ def wipe_cache(values):
 def wipe_cache_dialog():
     aggressor.prompt_confirm("Are you sure you want to wipe the cache? If you do so, pyCobaltHound will query every compromised user again upon its next run", "Wipe cache", wipe_cache)
 
+# recalculate menu
+def recalculate():
+    aggressor.fireEvent('credentials', aggressor.credentials())
+
+# settings menu
 def aggressor_empty_callback():
     engine.debug('')
 
@@ -371,7 +378,8 @@ menu = gui.popup('aggressor', callback=aggressor_empty_callback, children=[
         gui.insert_menu('pyCobaltHound_top'),
         gui.item("Settings", callback=update_settings_dialog),
         gui.separator(),
-        gui.item("Wipe cache", callback=wipe_cache_dialog)
+        gui.item("Wipe cache", callback=wipe_cache_dialog),
+        gui.item("Recalculate", callback=recalculate)
     ])
 ])
 
@@ -393,6 +401,7 @@ def credential_action(credentials):
     if connection_test_wrapper():
         # Transforming data and checking validity
         domains = get_domains()
+        engine.message(credentials)
         valid_users = check_valid_realm(credentials, domains)
         new_users = check_cache(valid_users)
         transformed_users = check_user_type(new_users)
@@ -400,26 +409,27 @@ def credential_action(credentials):
         # Checking if the accounts exists in BloodHound
         existing_users = check_existence(transformed_users)
         
-        # Marking the existing accounts as owned
-        mark_owned(existing_users)
+        if existing_users:
+            # Marking the existing accounts as owned
+            mark_owned(existing_users)
 
-        # Separate user and computer accounts
-        user_accounts = [user for user in existing_users if user["type"] == "User"]
-        computer_accounts = [user for user in existing_users if user["type"] == "Computer"]
+            # Separate user and computer accounts
+            user_accounts = [user for user in existing_users if user["type"] == "User"]
+            computer_accounts = [user for user in existing_users if user["type"] == "Computer"]
 
-        # Perform queries
-        user_queries_results = asyncio.run(do_async_queries(user_queries, user_accounts))
-        computer_queries_results = asyncio.run(do_async_queries(computer_queries, computer_accounts))
+            # Perform queries
+            user_queries_results = asyncio.run(do_async_queries(user_queries, user_accounts))
+            computer_queries_results = asyncio.run(do_async_queries(computer_queries, computer_accounts))
 
-        # Parse results
-        user_results = parse_results(user_queries, user_queries_results)
-        computer_results = parse_results(computer_queries, computer_queries_results)
-        
-        # Report results
-        if report:
-            reportpath = generate_report(user_results, computer_results)
-        if notify:
-            notify_operator(user_results, computer_results, reportpath)
+            # Parse results
+            user_results = parse_results(user_queries, user_queries_results)
+            computer_results = parse_results(computer_queries, computer_queries_results)
+            
+            # Report results
+            if report:
+                reportpath = generate_report(user_results, computer_results)
+            if notify:
+                notify_operator(user_results, computer_results, reportpath)
 
 # Test Neo4j connection on load
 connection_test_wrapper()
