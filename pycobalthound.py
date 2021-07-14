@@ -29,21 +29,20 @@ import pycobalt.gui as gui
 from report import generate_report
 
 # Cache settings (uses seperate caches to prevent issues when using multiple teamservers)
-unique_id = engine.message((netaddr.IPAddress(aggressor.localip())).value)
+unique_id = (netaddr.IPAddress(aggressor.localip())).value
 cache_location = os.path.realpath(os.path.dirname(__file__)) + '/pycobalthound-' + str(unique_id) + '.cache'
-ignore_cache = False
-
-# Report & notification settings 
-report = True
 reportpath = ""
-notify = True
 
-# Neo4j connection settings
-url = 'http://localhost:7474/db/data/transaction/commit'
-auth = "bmVvNGo6Ymxvb2Rob3VuZA=="
-headers = { "Accept": "application/json; charset=UTF-8",
+# Operator configurable settings (Neo4j connection + features)
+settings = {
+    'ignore_cache': False,
+    'report': True,
+    'notify': True,
+    'url': "http://localhost:7474/db/data/transaction/commit",
+    'headers': { "Accept": "application/json; charset=UTF-8",
         "Content-Type": "application/json",
-    "Authorization": auth }
+    "Authorization": "bmVvNGo6Ymxvb2Rob3VuZA=="}
+}
 
 # User cypher queries
 user_queries = [
@@ -80,7 +79,7 @@ def do_sync_cypher(query):
     response = ""
     
     try:
-        response = requests.post(url=url,headers=headers,json=data)
+        response = requests.post(url=settings["url"],headers=settings['headers'],json=data)
         response.raise_for_status()
     except HTTPError as http_err:
         engine.error(f"An HTTP error has occurred: {http_err}")
@@ -94,7 +93,7 @@ def do_sync_cypher(query):
 async def do_async_cypher(query, session):
     data = {"statements": [{'statement': query}]}
     try:
-        response = await session.post(url, json=data)
+        response = await session.post(settings["url"], json=data)
         response.raise_for_status()
     except HTTPError as http_err:
         engine.error(f"HTTP error occurred: {http_err}")
@@ -120,7 +119,7 @@ async def do_async_query(query, accounts, session):
         pass
 
 async def do_async_queries(queries, accounts):
-    async with ClientSession(headers=headers) as session:
+    async with ClientSession(headers=settings["headers"]) as session:
         query_results = await asyncio.gather(*[do_async_query(query, accounts, session) for query in queries])
         return query_results
 
@@ -141,12 +140,12 @@ def check_cache(valid_users):
     cached_users = []
     new_users = []
     
-    if not ignore_cache:
+    if not settings['ignore_cache']:
         try:
             cached_users = pickle.load(open(cache_location, "rb"))
-            engine.message('Restored users from: ' + cache_location)
+            engine.debug('Restored users from: ' + cache_location)
         except OSError:
-            engine.message("Could not find a cache file")
+            engine.debug("Could not find a cache file")
     else:
         engine.message("Ignoring cache. If you want the benefit of caching you should enable the cache")
 
@@ -155,18 +154,18 @@ def check_cache(valid_users):
 
     for user in parsed_users:
         if(user in cached_users):
-            engine.message("User was found in cache, skipping")
+            engine.debug("User was found in cache, skipping")
             continue
         else:
-            if not ignore_cache:
-                engine.message("User was not found in cache, adding to cache and processing")
+            if not settings['ignore_cache']:
+                engine.debug("User was not found in cache, adding to cache and processing")
             cached_users.append(user)
             new_users.append(user)
 
-    if not ignore_cache:
+    if not settings['ignore_cache']:
         cached_users = [user for user in cached_users if user in parsed_users]
         try:
-            engine.message("Saving the cache to: " + cache_location)
+            engine.debug("Saving the cache to: " + cache_location)
             pickle.dump(cached_users, open(cache_location, "wb"))
         except OSError:
             engine.error("Could not save cache!")
@@ -297,6 +296,9 @@ def connection_test_wrapper():
         aggressor.show_error("Could not connect to Neo4j, check your credentials and URL")
         return False
 
+# Test Neo4j connection on load
+connection_test_wrapper()
+
 # register menu's and callbacks
 # wipe cache menu
 def wipe_cache(values):  
@@ -318,37 +320,27 @@ def aggressor_empty_callback():
     engine.debug('')
 
 def update_settings(dialog, button_name, values):
-    engine.message(values)
+    global settings
 
-    global ignore_cache
-    global report
-    global url
-    global notify
-    global auth
-    global headers
+    auth = (base64.b64encode((values["username"] + ":" + values["password"]).encode('ascii'))).decode('utf-8')
+    settings['headers']['Authorization'] = auth
 
-    username = values["username"]
-    password = values["password"]
-    auth = (base64.b64encode((username + ":" + password).encode('ascii'))).decode('utf-8')
-    headers = { "Accept": "application/json; charset=UTF-8",
-        "Content-Type": "application/json",
-    "Authorization": auth }
-    url = values["url"] + '/db/data/transaction/commit'
+    settings['url'] = values["url"] + '/db/data/transaction/commit'
     
-    if values["cachecheck"] == 'false':
-        ignore_cache = True
+    if values["cachecheck"] == 'true':
+        settings["ignore_cache"] = True
     else:
-        ignore_cache = False
+        settings["ignore_cache"] = False
 
-    if values["notificationcheck"] == 'false':
-        notify = False
+    if values["notificationcheck"] == 'true':
+        settings["notify"] = False
     else:
-        notify = True
+        settings["notify"] = True
 
-    if values["reportcheck"] == "false":
-        report = False
+    if values["reportcheck"] == "true":
+        settings["report"] = False
     else:
-        report = True
+        settings["report"] = True
 
     connection_test_wrapper()
 
@@ -357,9 +349,9 @@ def update_settings_dialog():
         'username': 'neo4j',
 		'password': 'bloodhound',
 		'url' : 'http://localhost:7474',
-		'ignore_cache' : "true",
-		'report' : "true",
-		'notify' : "true"
+		'ignore_cache' : "false",
+		'report' : "false",
+		'notify' : "false"
     }
 
     dialog = aggressor.dialog("pyCobaltHound settings", drows, update_settings)
@@ -367,9 +359,9 @@ def update_settings_dialog():
     aggressor.drow_text(dialog, "username", "Neo4j username:  ")
     aggressor.drow_text(dialog, "password", "Neo4j password: ")
     aggressor.drow_text(dialog, "url", "Neo4j URL")
-    aggressor.drow_checkbox(dialog, "cachecheck", "Enable cache")
-    aggressor.drow_checkbox(dialog, "notificationcheck", "Enable notifications")
-    aggressor.drow_checkbox(dialog, "reportcheck", "Enable reporting")
+    aggressor.drow_checkbox(dialog, "cachecheck", "Disable cache")
+    aggressor.drow_checkbox(dialog, "notificationcheck", "Disable notifications")
+    aggressor.drow_checkbox(dialog, "reportcheck", "Disable reporting")
     aggressor.dbutton_action(dialog, "Update")
     aggressor.dialog_show(dialog)
 
@@ -389,19 +381,19 @@ gui.register(menu)
 
 @events.event('update-check', official_only=False)
 def check():
-    engine.message("ignore: " + str(ignore_cache))
-    engine.message("report: " + str(report))
-    engine.message("url: " + url)
-    engine.message("notify: " + str(notify))
-    engine.message("auth: " + auth)
+    engine.message("ignore: " + str(settings['ignore_cache']))
+    engine.message("report: " + str(settings['report']))
+    engine.message("url: " + settings['url'])
+    engine.message("notify: " + str(settings['report']))
+    engine.message(settings['headers'])
 
 # Reacting to the "on credentials" event in Cobalt Strike
 @events.event('credentials')
 def credential_action(credentials):
+    reportpath = ""
     if connection_test_wrapper():
         # Transforming data and checking validity
         domains = get_domains()
-        engine.message(credentials)
         valid_users = check_valid_realm(credentials, domains)
         new_users = check_cache(valid_users)
         transformed_users = check_user_type(new_users)
@@ -426,13 +418,11 @@ def credential_action(credentials):
             computer_results = parse_results(computer_queries, computer_queries_results)
             
             # Report results
-            if report:
+            if settings['report']:
                 reportpath = generate_report(user_results, computer_results)
-            if notify:
+            if settings['notify']:
                 notify_operator(user_results, computer_results, reportpath)
 
-# Test Neo4j connection on load
-connection_test_wrapper()
 # Read commands from cobaltstrike. must be called last
 engine.loop()
 
