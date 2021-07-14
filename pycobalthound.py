@@ -30,7 +30,8 @@ from report import generate_report
 
 # Cache settings (uses seperate caches to prevent issues when using multiple teamservers)
 unique_id = (netaddr.IPAddress(aggressor.localip())).value
-cache_location = os.path.realpath(os.path.dirname(__file__)) + '/pycobalthound-' + str(unique_id) + '.cache'
+cache_location = os.path.realpath(os.path.dirname(__file__)) + '/cache/pycobalthound-' + str(unique_id) + '.cache'
+engine.message(cache_location)
 reportpath = ""
 
 # Operator configurable settings (Neo4j connection + features)
@@ -140,6 +141,10 @@ def check_cache(valid_users):
     cached_users = []
     new_users = []
     
+    if not settings['ignore_cache']:
+        if not os.path.isdir(os.path.realpath(os.path.dirname(__file__)) + "/cache"):
+            os.makedirs(os.path.realpath(os.path.dirname(__file__)) + "/cache")
+
     if not settings['ignore_cache']:
         try:
             cached_users = pickle.load(open(cache_location, "rb"))
