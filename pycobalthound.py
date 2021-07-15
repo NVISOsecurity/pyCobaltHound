@@ -24,14 +24,13 @@ import pycobalt.events as events
 import pycobalt.aggressor as aggressor
 import pycobalt.gui as gui
 
-# Importing the HTML reporting functionality
+# Importing the reporting functionality
 from report import generate_report
 
 # Cache settings (uses seperate caches to prevent issues when using multiple teamservers)
 unique_id = (netaddr.IPAddress(aggressor.localip())).value
 cache_location = os.path.realpath(os.path.dirname(__file__)) + '/cache/pycobalthound-' + str(unique_id) + '.cache'
 settings_location = os.path.realpath(os.path.dirname(__file__)) + '/settings/pycobalthound-' + str(unique_id) + '.settings'
-engine.message(settings_location)
 reportpath = ""
 
 # Operator configurable settings (Neo4j connection + features)
@@ -210,7 +209,7 @@ def get_domains():
     j = json.loads(r.text)  
     for x in j["results"][0]["data"]:
         domains.append(x["row"][0]["name"])
-    
+    engine.message(domains)
     return domains
 
 def make_with_statement(accounts):
@@ -314,7 +313,7 @@ def connection_test_wrapper():
 # Test Neo4j connection on load
 connection_test_wrapper()
 
-# register menu's and callbacks
+# register aggressor menu and callbacks
 # wipe cache menu
 def wipe_cache(values):  
     if os.path.exists(cache_location):
@@ -422,9 +421,43 @@ menu = gui.popup('aggressor', callback=aggressor_empty_callback, children=[
         gui.item("Recalculate", callback=recalculate)
     ])
 ])
+#  register credentials menu and callbacks
+def credentials_empty_callback(values):
+    engine.debug('')
+
+def update_cache_callback(values):
+    keys = ['user', 'realm']
+    parsed_users = []
+    try:
+        cached_users = pickle.load(open(cache_location, "rb"))
+        engine.debug('Restored users from: ' + cache_location)
+    except OSError:
+        engine.debug("Could not find a cache file")
+
+    if cached_users:
+        for user in values:
+            parsed_users.append({key: user[key].upper() for key in keys})
+
+        new_cached_users = [user for user in cached_users if not (user in parsed_users)]
+        try:
+            engine.debug("Saving the cache to: " + cache_location)
+            pickle.dump(new_cached_users, open(cache_location, "wb"))
+        except OSError:
+            engine.error("Could not save cache!")
+
+credential_menu = gui.popup('credentials', callback=credentials_empty_callback, children=[
+    gui.menu('pyCobaltHound', children=[
+        gui.insert_menu('pyCobaltHound_top'),
+        gui.item("Remove from cache", callback=update_cache_callback),
+    ])
+])
 
 gui.register(menu)
-        
+gui.register(credential_menu)
+
+def test():
+    engine.message(test)
+
 # Reacting to the "on credentials" event in Cobalt Strike
 @events.event('credentials')
 def credential_action(credentials):
