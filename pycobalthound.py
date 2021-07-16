@@ -198,7 +198,7 @@ def check_user_type(new_users):
             name = user["user"] + "@" + user["realm"]
             user.update(type='User')
             user.update(username=name)
-    
+
     return transformed_users
 
 def get_domains():
@@ -209,7 +209,7 @@ def get_domains():
     j = json.loads(r.text)  
     for x in j["results"][0]["data"]:
         domains.append(x["row"][0]["name"])
-    engine.message(domains)
+    
     return domains
 
 def make_with_statement(accounts):
@@ -309,11 +309,49 @@ def connection_test_wrapper():
     else:
         aggressor.show_error("Could not connect to Neo4j, check your credentials and URL")
         return False
+# Main parsing and query logic
+def credential_action(credentials, event=True):
+    reportpath = ""
+    if connection_test_wrapper():
+        # Transforming data and checking validity
+        domains = get_domains()
+        valid_users = check_valid_realm(credentials, domains)
+        if event:
+            new_users = check_cache(valid_users)
+        else:
+            new_users = valid_users
+        transformed_users = check_user_type(new_users)
+        
+         # Checking if the accounts exists in BloodHound
+        existing_users = check_existence(transformed_users)
+        
+        if existing_users:
+            # Marking the existing accounts as owned
+            if event:
+                mark_owned(existing_users)
+
+            # Separate user and computer accounts
+            user_accounts = [user for user in existing_users if user["type"] == "User"]
+            computer_accounts = [user for user in existing_users if user["type"] == "Computer"]
+
+            # Perform queries
+            user_queries_results = asyncio.run(do_async_queries(user_queries, user_accounts))
+            computer_queries_results = asyncio.run(do_async_queries(computer_queries, computer_accounts))
+
+            # Parse results
+            user_results = parse_results(user_queries, user_queries_results)
+            computer_results = parse_results(computer_queries, computer_queries_results)
+            
+            # Report results
+            if settings['report']:
+                reportpath = generate_report(user_results, computer_results)
+            if settings['notify']:
+                notify_operator(user_results, computer_results, reportpath)
 
 # Test Neo4j connection on load
 connection_test_wrapper()
 
-# register aggressor menu and callbacks
+# define aggressor menu and callbacks
 # wipe cache menu
 def wipe_cache(values):  
     if os.path.exists(cache_location):
@@ -335,7 +373,6 @@ def aggressor_empty_callback():
 
 def update_settings(dialog, button_name, values):
     global settings
-    engine.message(values)
     auth = (base64.b64encode((values["username"] + ":" + values["password"]).encode('ascii'))).decode('utf-8')
     settings['headers']['Authorization'] = auth
 
@@ -421,7 +458,7 @@ menu = gui.popup('aggressor', callback=aggressor_empty_callback, children=[
         gui.item("Recalculate", callback=recalculate)
     ])
 ])
-#  register credentials menu and callbacks
+#  define credentials menu and callbacks
 def credentials_empty_callback(values):
     engine.debug('')
 
@@ -452,47 +489,158 @@ credential_menu = gui.popup('credentials', callback=credentials_empty_callback, 
     ])
 ])
 
+# define beacons menu and callbacks
+def beacons_empty_callback(values):
+    engine.debug('')
+
+def investigate_action(dialog, button_name, values):
+    beacons = aggressor.beacons()
+    target_beacons = values["beacons"]
+    targets = []
+    for beacon in beacons:
+        user = ""
+        computer = ""
+        if (beacon["id"] in target_beacons):
+            user = beacon["user"]
+            computer = beacon["computer"]
+            
+            # Check if beacon is running as LA or SYSTEM
+            if user == "SYSTEM *":
+                system = True
+            # This will exclude the DA Administrator too, but I guess you don't need to investigate if you've got a high integrity beacon as that :)
+            elif user == "Administrator *":
+                system == True
+            else:
+                system = False
+
+            # Format user/computer names
+            if user[-1] == "*":
+                user = user[:-2].upper()
+            else:
+                user = user.upper()
+            
+            computer = computer.upper() + "$"
+
+            # Add to list of objects to be marked
+            if values["investigate"] == "Both":
+                if system:
+                    targets.append({'user': computer, 'realm': values["domain"]})
+                else:
+                    targets.append({'user': user, 'realm': values["domain"]})
+                    targets.append({'user': computer, 'realm': values["domain"]})
+            if values["investigate"] == "User":
+                targets.append({'user': user, 'realm': values["domain"]})
+            if values["investigate"] == "Computer":
+                targets.append({'user': computer, 'realm': values["domain"]})
+                
+    credential_action(targets, False)
+
+def investigate_dialog(values):
+    drows = {
+        "beacons": values,
+        "investigate": "Both",
+        "domain": "CONTOSO.LOCAL"
+    }
+
+    investigate = ['Both', 'User', 'Computer']
+    domains = get_domains()
+
+    dialog = aggressor.dialog("Investigate", drows, investigate_action)
+    aggressor.dialog_description(dialog, "Investigate users & computers")
+    aggressor.drow_combobox(dialog, "investigate", "Investigate", investigate)
+    aggressor.drow_combobox(dialog, "domain", 'Domain', domains)
+    aggressor.dbutton_action(dialog, "Investigate")
+    aggressor.dialog_show(dialog)
+
+def mark_owned_action(dialog, button_name, values):
+    beacons = aggressor.beacons()
+    owned_beacons = values["beacons"]
+    targets = []
+    for beacon in beacons:
+        user = ""
+        computer = ""
+        if (beacon["id"] in owned_beacons):
+            
+            user = beacon["user"]
+            computer = beacon["computer"]
+
+            # Cobalt Strike shows high integrity beacons as "User *"
+            if user[-1] == "*":
+                admin = True
+            else:
+                admin = False
+            # Check if beacon is running as LA or SYSTEM
+            if user == "SYSTEM *":
+                system = True
+            elif user == "Administrator *":
+                system == True
+            else:
+                system = False
+            # Format user/computer names
+            if user[-1] == "*":
+                user = user[:-2].upper()
+            else:
+                user = user.upper()
+            
+            computer = computer.upper() + "$"
+
+            # Add to list of objects to be marked
+            if values["nodetype"] == "Default":
+                if system:
+                    targets.append({'user': computer, 'realm': values["domain"]})
+                elif admin:
+                    targets.append({'user': user, 'realm': values["domain"]})
+                    targets.append({'user': computer, 'realm': values["domain"]})
+                else:
+                    targets.append({'user': user, 'realm': values["domain"]})
+            if values["nodetype"] == "User":
+                    targets.append({'user': user, 'realm': values["domain"]})
+            if values["nodetype"] == "Computer":
+                targets.append({'user': computer, 'realm': values["domain"]})
+
+    # Mark targets as owned                
+    transformed_users = check_user_type(targets)
+    existing_users = check_existence(transformed_users)
+    if existing_users:
+        mark_owned(existing_users)
+
+def mark_owned_dialog(values):
+    drows = {
+        "beacons": values,
+        "nodetype": "Default",
+        "domain": "CONTOSO.LOCAL"
+    }
+
+    nodetypes = ['Default', 'User', 'Computer']
+    domains = get_domains()
+
+    dialog = aggressor.dialog("Mark as owned", drows, mark_owned_action)
+    aggressor.dialog_description(dialog, "Mark beacons as owned")
+    aggressor.drow_combobox(dialog, "nodetype", "Nodetype", nodetypes)
+    aggressor.drow_combobox(dialog, "domain", 'Domain', domains)
+    aggressor.dbutton_action(dialog, "Mark")
+    aggressor.dialog_show(dialog)
+
+beacon_menu = gui.popup('beacon', callback=beacons_empty_callback, children=[
+    gui.menu('pyCobaltHound', children=[
+        gui.insert_menu('pyCobaltHound_top'),
+        gui.item("Mark as owned", callback=mark_owned_dialog),
+        gui.item("Investigate", callback=investigate_dialog)
+    ])
+])
+
+# register menus
 gui.register(menu)
 gui.register(credential_menu)
+gui.register(beacon_menu)
 
 def test():
     engine.message(test)
 
 # Reacting to the "on credentials" event in Cobalt Strike
 @events.event('credentials')
-def credential_action(credentials):
-    reportpath = ""
-    if connection_test_wrapper():
-        # Transforming data and checking validity
-        domains = get_domains()
-        valid_users = check_valid_realm(credentials, domains)
-        new_users = check_cache(valid_users)
-        transformed_users = check_user_type(new_users)
-        
-        # Checking if the accounts exists in BloodHound
-        existing_users = check_existence(transformed_users)
-        
-        if existing_users:
-            # Marking the existing accounts as owned
-            mark_owned(existing_users)
-
-            # Separate user and computer accounts
-            user_accounts = [user for user in existing_users if user["type"] == "User"]
-            computer_accounts = [user for user in existing_users if user["type"] == "Computer"]
-
-            # Perform queries
-            user_queries_results = asyncio.run(do_async_queries(user_queries, user_accounts))
-            computer_queries_results = asyncio.run(do_async_queries(computer_queries, computer_accounts))
-
-            # Parse results
-            user_results = parse_results(user_queries, user_queries_results)
-            computer_results = parse_results(computer_queries, computer_queries_results)
-            
-            # Report results
-            if settings['report']:
-                reportpath = generate_report(user_results, computer_results)
-            if settings['notify']:
-                notify_operator(user_results, computer_results, reportpath)
+def credential_action_wrapper(credentials):
+    credential_action(credentials)
 
 # Read commands from cobaltstrike. must be called last
 engine.loop()
