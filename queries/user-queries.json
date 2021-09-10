@@ -2,16 +2,19 @@
     {
         "name": "path_to_hvt",
         "query": "{statement} MATCH (u:User) WHERE u.name STARTS WITH names MATCH (n {{highvalue:true}}),p=shortestPath((u)-[r*1..]->(n)) WHERE NONE (r IN relationships(p) WHERE type(r)= 'GetChanges') AND NONE (r in relationships(p) WHERE type(r)='GetChangesAll') AND NOT n.objectid ENDS WITH '-512' AND NOT u=n RETURN DISTINCT(u.name)",
-        "report": "{number} user(s) has/have a path to a high value target."
+        "report": "{number} user(s) has/have a path to a high value target.",
+        "enabled": "True"
     },
     {
         "name": "path_to_da",
         "query": "{statement} MATCH (u:User) WHERE u.name STARTS WITH names MATCH p=shortestPath((u)-[:MemberOf|HasSession|AdminTo|AllExtendedRights|AddMember|ForceChangePassword|GenericAll|GenericWrite|Owns|WriteDacl|WriteOwner|CanRDP|ExecuteDCOM|AllowedToDelegate|ReadLAPSPassword|Contains|GpLink|AddAllowedToAct|AllowedToAct|SQLAdmin|ReadGMSAPassword|HasSIDHistory|CanPSRemote|AZAddMembers|AZContains|AZContributor|AZGetCertificates|AZGetKeys|AZGetSecrets|AZGlobalAdmin|AZOwns|AZPrivilegedRoleAdmin|AZResetPassword|AZUserAccessAdministrator|AZAppAdmin|AZCloudAppAdmin|AZRunsAs|AZKeyVaultContributor*1..]->(m:Group)) WHERE m.objectid ENDS WITH '-512' AND NOT u=m RETURN DISTINCT(u.name)",
-        "report": "{number} user(s) has/have a path to domain admins."
+        "report": "{number} user(s) has/have a path to domain admins.",
+        "enabled": "True"
     },
     {
         "name": "test empty query",
         "query": "{statement} MATCH (u:User) WHERE u.name STARTS WITH names AND u.objectid ENDS WITH '-499' RETURN u",
-        "report": "this is just to test a query with empty result set"
+        "report": "this is just to test a query with empty result set",
+        "enabled": "True"
     }
 ]

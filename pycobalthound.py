@@ -315,14 +315,25 @@ def credential_action(credentials, event=True, report=True):
             # Separate user and computer accounts
             user_accounts = [user for user in existing_users if user["type"] == "User"]
             computer_accounts = [user for user in existing_users if user["type"] == "Computer"]
+            
+            # Get enabled queries
+            enabled_user_queries = [query for query in user_queries if query["enabled"] == "True"]
+            enabled_computer_queries = [query for query in computer_queries if query["enabled"] == "True"]
+
+            for query in enabled_user_queries:
+                engine.message(query["name"] + ' is enabled')
+            
+            engine.message(user_queries)
+            engine.message("\n")
+            engine.message(enabled_user_queries)
 
             # Perform queries
-            user_queries_results = asyncio.run(do_async_queries(user_queries, user_accounts))
-            computer_queries_results = asyncio.run(do_async_queries(computer_queries, computer_accounts))
+            user_queries_results = asyncio.run(do_async_queries(enabled_user_queries, user_accounts))
+            computer_queries_results = asyncio.run(do_async_queries(enabled_computer_queries, computer_accounts))
 
             # Parse results
-            user_results = parse_results(user_queries, user_queries_results)
-            computer_results = parse_results(computer_queries, computer_queries_results)
+            user_results = parse_results(enabled_user_queries, user_queries_results)
+            computer_results = parse_results(enabled_computer_queries, computer_queries_results)
             
             # Report results
             if report:
@@ -490,7 +501,7 @@ def investigate_action(dialog, button_name, values):
             # Check if beacon is running as LA or SYSTEM
             if user == "SYSTEM *":
                 system = True
-            # This will exclude the DA Administrator too, but I guess you don't need to investigate if you've got a high integrity beacon as that :)
+            # This will exclude the "Administrator" DA in AD too, but I guess you don't need to investigate if you've got a high integrity beacon as that :)
             elif user == "Administrator *":
                 system == True
             else:
