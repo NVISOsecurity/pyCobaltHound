@@ -310,7 +310,7 @@ def connection_test_wrapper():
         aggressor.show_error("Could not connect to Neo4j, check your credentials and URL")
         return False
 # Main parsing and query logic
-def credential_action(credentials, event=True):
+def credential_action(credentials, event=True, report=True):
     reportpath = ""
     if connection_test_wrapper():
         # Transforming data and checking validity
@@ -343,8 +343,9 @@ def credential_action(credentials, event=True):
             computer_results = parse_results(computer_queries, computer_queries_results)
             
             # Report results
-            if settings['report']:
-                reportpath = generate_report(user_results, computer_results)
+            if report:
+                if settings['report']:
+                    reportpath = generate_report(user_results, computer_results)
             if settings['notify']:
                 notify_operator(user_results, computer_results, reportpath)
 
@@ -532,14 +533,16 @@ def investigate_action(dialog, button_name, values):
                 targets.append({'user': user, 'realm': values["domain"]})
             if values["investigate"] == "Computer":
                 targets.append({'user': computer, 'realm': values["domain"]})
-                
+    
+    engine.message(values["report"])
     credential_action(targets, False)
 
 def investigate_dialog(values):
     drows = {
         "beacons": values,
         "investigate": "Both",
-        "domain": "CONTOSO.LOCAL"
+        "domain": "CONTOSO.LOCAL",
+        "report": "false"
     }
 
     investigate = ['Both', 'User', 'Computer']
@@ -549,6 +552,7 @@ def investigate_dialog(values):
     aggressor.dialog_description(dialog, "Investigate users & computers")
     aggressor.drow_combobox(dialog, "investigate", "Investigate", investigate)
     aggressor.drow_combobox(dialog, "domain", 'Domain', domains)
+    aggressor.drow_checkbox(dialog, "report", "Generate a report")
     aggressor.dbutton_action(dialog, "Investigate")
     aggressor.dialog_show(dialog)
 
