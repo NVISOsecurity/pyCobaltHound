@@ -31,6 +31,8 @@ from report import generate_report
 unique_id = (netaddr.IPAddress(aggressor.localip())).value
 cache_location = os.path.realpath(os.path.dirname(__file__)) + '/cache/pycobalthound-' + str(unique_id) + '.cache'
 settings_location = os.path.realpath(os.path.dirname(__file__)) + '/settings/pycobalthound-' + str(unique_id) + '.settings'
+user_queries_location = os.path.realpath(os.path.dirname(__file__)) + '/queries/user-queries.json'
+computer_queries_location = os.path.realpath(os.path.dirname(__file__)) + '/queries/computer-queries.json'
 reportpath = ""
 
 # Operator configurable settings (Neo4j connection + features)
@@ -54,33 +56,13 @@ else:
         }
     }
 
-# User cypher queries
-user_queries = [
-    {
-        "name": "path_to_hvt",
-        "query" : "{statement} MATCH (u:User) WHERE u.name STARTS WITH names MATCH (n {{highvalue:true}}),p=shortestPath((u)-[r*1..]->(n)) WHERE NONE (r IN relationships(p) WHERE type(r)= 'GetChanges') AND NONE (r in relationships(p) WHERE type(r)='GetChangesAll') AND NOT n.objectid ENDS WITH '-512' AND NOT u=n RETURN DISTINCT(u.name)",
-        "report" : "{number} user(s) has/have a path to a high value target."
-    },
-    {
-        "name": "path_to_da",
-        "query" : "{statement} MATCH (u:User) WHERE u.name STARTS WITH names MATCH p=shortestPath((u)-[:MemberOf|HasSession|AdminTo|AllExtendedRights|AddMember|ForceChangePassword|GenericAll|GenericWrite|Owns|WriteDacl|WriteOwner|CanRDP|ExecuteDCOM|AllowedToDelegate|ReadLAPSPassword|Contains|GpLink|AddAllowedToAct|AllowedToAct|SQLAdmin|ReadGMSAPassword|HasSIDHistory|CanPSRemote|AZAddMembers|AZContains|AZContributor|AZGetCertificates|AZGetKeys|AZGetSecrets|AZGlobalAdmin|AZOwns|AZPrivilegedRoleAdmin|AZResetPassword|AZUserAccessAdministrator|AZAppAdmin|AZCloudAppAdmin|AZRunsAs|AZKeyVaultContributor*1..]->(m:Group)) WHERE m.objectid ENDS WITH '-512' AND NOT u=m RETURN DISTINCT(u.name)",
-        "report" : "{number} user(s) has/have a path to domain admins."
-    },
-    {
-        "name": "test empty query",
-        "query" : "{statement} MATCH (u:User) WHERE u.name STARTS WITH names AND u.objectid ENDS WITH '-499' RETURN u",
-        "report" : "this is just to test a query with empty result set"
-    }
-]
+# Load user cypher queries
+with open(user_queries_location, "r") as json_file:
+    user_queries = json.load(json_file)
 
-# Computer cypher queries
-computer_queries = [
-    {
-        "name": "path_to_hvt",
-        "query" : "{statement} MATCH (u:Computer) WHERE u.name STARTS WITH names MATCH (n {{highvalue:true}}),p=shortestPath((u)-[r*1..]->(n)) WHERE NONE (r IN relationships(p) WHERE type(r)= 'GetChanges') AND NONE (r in relationships(p) WHERE type(r)='GetChangesAll') AND NOT n.objectid ENDS WITH '-512' AND NOT u=n RETURN DISTINCT(u.name)",
-        "report" : "{number} computer(s) has/have a path to a high value target."
-    }
-]
+# Load computer cypher queries
+with open(computer_queries_location, "r") as json_file:
+    computer_queries = json.load(json_file)
 
 # Functions
 # Cypher query functions
