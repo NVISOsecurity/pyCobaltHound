@@ -291,6 +291,7 @@ def connection_test_wrapper():
     else:
         aggressor.show_error("Could not connect to Neo4j, check your credentials and URL")
         return False
+
 # Main parsing and query logic
 def credential_action(credentials, event=True, report=True):
     reportpath = ""
@@ -445,13 +446,25 @@ def check_settings():
 menu = gui.popup('aggressor', callback=aggressor_empty_callback, children=[
     gui.menu('pyCobaltHound', children=[
         gui.insert_menu('pyCobaltHound_top'),
-        gui.item("Update settings", callback=update_settings_dialog),
-        gui.item("Check settings", callback=check_settings),
-        gui.separator(),
+        gui.menu('Settings', children=[
+            gui.item("Update settings", callback=update_settings_dialog),
+            gui.item("Check settings", callback=check_settings),
+        ]),
+        gui.menu('Queries', children=[
+            gui.menu('User queries', children=[
+                gui.item('Update queries', callback=update_settings_dialog),
+                gui.item("Check queries", callback=check_settings),
+            ]),
+            gui.menu('Computer queries', children=[
+                gui.item('Update queries', callback=update_settings_dialog),
+                gui.item("Check queries", callback=check_settings),
+            ]),
+        ]),
         gui.item("Wipe cache", callback=wipe_cache_dialog),
         gui.item("Recalculate", callback=recalculate)
     ])
 ])
+
 #  define credentials menu and callbacks
 def credentials_empty_callback(values):
     engine.debug('')
