@@ -438,6 +438,7 @@ def update_settings_dialog():
     aggressor.dbutton_action(dialog, "Update")
     aggressor.dialog_show(dialog)
 
+# query updating menu
 def update_queries(dialog, button_name, values):
     global user_queries
     global computer_queries
@@ -526,37 +527,68 @@ def update_queries_choice_dialog():
     aggressor.dbutton_action(dialog, "Choose")
     aggressor.dialog_show(dialog)
 
-def check_queries(dialog, button_name, values):
-    messagebox= ''
-    if values["type"] == "User":
-        for query in user_queries:
-            if query["enabled"] == "True":
-                messagebox = messagebox + "☑ " + query["name"] + " is enabled" + "\n"
-            else:
-                messagebox = messagebox + "☒ " + query["name"] + " is disabled" + "\n"
-    aggressor.show_message(messagebox[:-1])
+# add query menu
+def add_query(dialog, button_name, values):
+    global user_queries
+    global computer_queries
+    
+    if values["enabled"] == "Enabled":
+        state = "True"
+    else:
+        state = "False"
 
-
-def check_queries_choice_dialog():
-    drows = {
-        'type': "User"
+    new_query = {
+        "name": values["name"],
+        "statement": values["statement"],
+        "report": values["report"],
+        "enabled": state,
+        "custom": "True"
     }
 
-    dialog = aggressor.dialog("Query selection", drows, check_queries)
-    aggressor.dialog_description(dialog, "Which type of query do you want to check?")
-    aggressor.drow_combobox(dialog, "type", "Query  type", ["User", "Computer"])
-    aggressor.dbutton_action(dialog, "Choose")
+    if values["type"] == "User":
+        user_queries.append(new_query)
+        if values["persistent"] == "Yes":
+            with open(user_queries_location, "w") as json_file:
+                json.dump(user_queries, json_file, indent=4)
+    
+    if values["type"] == "Computer":
+        computer_queries.append(new_query)
+        if values["persistent"] == "Yes":
+            with open(computer_queries, "w") as json_file:
+                json.dump(computer_queries, json_file, indent=4)
+
+    engine.message(new_query)
+
+def add_query_dialog():
+    drows = {
+        "name": "name of your query",
+        "statement": "{statement} ... RETURN DISTINCT(x.name)",
+        "report": "{number} entity(s) has/have a path to target.",
+        "enabled": "Enabled",
+        "type": "User",
+        "persistent": "Yes"
+    }
+
+    dialog = aggressor.dialog("Add a custom query", drows, add_query)
+    aggressor.dialog_description(dialog, "Fill in the required information")
+    aggressor.drow_text(dialog, "name", "Name")
+    aggressor.drow_text_big(dialog, "statement", "Cypher query")
+    aggressor.drow_text(dialog, "report", "Report headline")
+    aggressor.drow_combobox(dialog, "enabled", "Status", ["Enabled", "Disabled"])
+    aggressor.drow_combobox(dialog, "type", "Query type", ["User", "Computer"])
+    aggressor.drow_combobox(dialog, "persistent", "Save settings persistently", ["Yes", "No"])
+    aggressor.dbutton_action(dialog, "Add")
     aggressor.dialog_show(dialog)
 
-
-    
-menu = gui.popup('aggressor', callback=aggressor_empty_callback, children=[
-    gui.menu('pyCobaltHound', children=[
+# menu layout    
+menu = gui.popup("aggressor", callback=aggressor_empty_callback, children=[
+    gui.menu("pyCobaltHound", children=[
         gui.insert_menu('pyCobaltHound_top'),
         gui.item("Settings", callback=update_settings_dialog),
-        gui.menu('Queries', children=[
-            gui.item('Update queries', callback=update_queries_choice_dialog),
-            gui.item("Check queries", callback=check_queries_choice_dialog)
+        gui.menu("Queries", children=[
+            gui.item("Update queries", callback=update_queries_choice_dialog),
+            gui.item("Add query", callback=add_query_dialog),
+            gui.item("Remove query", callback=aggressor_empty_callback)
         ]),
         gui.item("Wipe cache", callback=wipe_cache_dialog),
         gui.item("Recalculate", callback=recalculate)
