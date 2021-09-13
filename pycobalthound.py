@@ -11,7 +11,6 @@ import requests
 import json
 import pickle
 import asyncio
-import notify2
 import base64
 import netaddr
 
@@ -44,14 +43,16 @@ if os.path.isfile(settings_location):
         engine.message('Restored settings from: ' + settings_location)
     except OSError:
             engine.debug("Could not load the settings file")
+
 # If no settings were saved apply the defaults
 else:
     settings = {
-        'ignore_cache': False,
-        'report': True,
-        'notify': True,
-        'url': "http://localhost:7474/db/data/transaction/commit",
-        'headers': { "Accept": "application/json; charset=UTF-8",
+        "ignore_cache": False,
+        "report": True,
+        "notify": True,
+        "notifytype": "pyNotify",
+        "url": "http://localhost:7474/db/data/transaction/commit",
+        "headers": { "Accept": "application/json; charset=UTF-8",
         "Content-Type": "application/json",
         "Authorization": "bmVvNGo6Ymxvb2Rob3VuZA=="
         }
@@ -65,6 +66,18 @@ with open(user_queries_location, "r") as json_file:
 with open(computer_queries_location, "r") as json_file:
     computer_queries = json.load(json_file)
 
+# Check if Notify2 is installed
+def check_notify2():
+    try:
+        import notify2
+        return True
+    except ImportError or ModuleNotFoundError:
+        engine.error('Notify2 is not installed, falling back to native notifications!')
+        settings["notifytype"] = "Native"
+        return False
+check_notify2()
+
+engine.message(json.dumps(settings, indent=4))  
 # Functions
 # Cypher query functions
 def do_sync_cypher(query):
@@ -237,33 +250,36 @@ def parse_results(queries, results):
         parsed_results.append({'name': query['name'], 'report': query['report'], 'result': data})
     return parsed_results
 
+def notify(header, message):
+    if settings["notifytype"] == "pyNotify" and check_notify2:
+        import notify2
+        notify2.init("pyCobaltHound")
+        u = notify2.Notification(header, message)
+        u.set_timeout(300000)
+        u.show()
+    else:
+        aggressor.show_message(message)
+
 def notify_operator(user_results, computer_results, reportpath):
-    notify2.init("pyCobaltHound")
     if all(len(result['result']) == 0 for result in user_results) == False:
         message = ""
         for result in user_results:
             if len(result['result']) != 0:
-                message = message + result['report'].format(number=len(result['result'])) + '\n'
-        
-        u = notify2.Notification("pyCobalthound - User report", message[:-1])
-        u.set_timeout(300000)
-        u.show()
+                message = message + result['report'].format(number=len(result['result'])) + "\n"
+            
+        if reportpath:
+            message = message + "\n" + "More details can be found in: " + reportpath + "\n"
+        notify("pyCobalthound - User report", message[:-1])
 
     if all(len(result['result']) == 0 for result in computer_results) == False:
         message = ""
         for result in computer_results:
             if len(result['result']) != 0:
-                message = message + result['report'].format(number=len(result['result'])) + '\n'
-        
-        c = notify2.Notification("pyCobaltHound - Computer report", message[:-1])
-        c.set_timeout(30000)
-        c.show()
+                message = message + result['report'].format(number=len(result['result'])) + "\n"
+        if reportpath:
+            message = message + "\n" + "More details can be found in: " + reportpath + "\n"
+        notify("pyCobaltHound - Computer report", message[:-1])
 
-    if reportpath:
-        message = "More details can be found in: " + reportpath
-        c = notify2.Notification("pyCobaltHound - Report generated", message)
-        c.set_timeout(30000)
-        c.show()
 
 # Neo4j connection test
 def connection_test():
@@ -321,13 +337,6 @@ def credential_action(credentials, event=True, report=True):
             # Get enabled queries
             enabled_user_queries = [query for query in user_queries if query["enabled"] == "True"]
             enabled_computer_queries = [query for query in computer_queries if query["enabled"] == "True"]
-
-            for query in enabled_user_queries:
-                engine.message(query["name"] + ' is enabled')
-            
-            engine.message(user_queries)
-            engine.message("\n")
-            engine.message(enabled_user_queries)
 
             # Perform queries
             user_queries_results = asyncio.run(do_async_queries(enabled_user_queries, user_accounts))
@@ -389,6 +398,11 @@ def update_settings(dialog, button_name, values):
     else:
         settings["report"] = False
 
+    if values["notifytype"] == "pyNotify" and check_notify2:
+        settings["notifytype"] = "pyNotify"
+    else:
+        settings["notifytype"] = "Native"
+
     if values['persistent'] == 'Yes':
         if not os.path.isdir(os.path.realpath(os.path.dirname(__file__)) + "/settings"):
             os.makedirs(os.path.realpath(os.path.dirname(__file__)) + "/settings")
@@ -408,7 +422,9 @@ def update_settings_dialog():
     }
 
     drows["url"] = settings["url"][:-27]
-    
+    drows["persistent"] = "Yes"
+    drows["notifytype"] = settings["notifytype"]
+
     # Overkill just because I want nice menus :D
     if settings["ignore_cache"]:
         drows["cachecheck"] = "Disabled"
@@ -424,8 +440,6 @@ def update_settings_dialog():
         drows["reportcheck"] = "Enabled"
     else:
         drows["reportcheck"] = "Disabled"
-
-    drows["persistent"] = "Yes"
     
     dialog = aggressor.dialog("pyCobaltHound settings", drows, update_settings)
     aggressor.dialog_description(dialog, "Update your pyCobaltHound settings")
@@ -434,6 +448,7 @@ def update_settings_dialog():
     aggressor.drow_text(dialog, "url", "Neo4j URL (http://server:port)")
     aggressor.drow_combobox(dialog, "cachecheck", "Caching", ["Enabled", "Disabled"])
     aggressor.drow_combobox(dialog, "notificationcheck", "Notifications", ["Enabled", "Disabled"])
+    aggressor.drow_combobox(dialog, "notifytype", "Notification method", ["Native", "pyNotify"])
     aggressor.drow_combobox(dialog, "reportcheck", "Reporting", ["Enabled", "Disabled"])
     aggressor.drow_combobox(dialog, "persistent", "Save settings persistently", ["Yes", "No"])
     aggressor.dbutton_action(dialog, "Update")
