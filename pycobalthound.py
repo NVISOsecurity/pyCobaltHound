@@ -373,20 +373,20 @@ def update_settings(dialog, button_name, values):
 
     settings['url'] = values["url"] + '/db/data/transaction/commit'
     
-    if values["cachecheck"] == 'true':
+    if values["cachecheck"] == 'Disabled':
         settings["ignore_cache"] = True
     else:
         settings["ignore_cache"] = False
 
-    if values["notificationcheck"] == 'true':
-        settings["notify"] = False
-    else:
+    if values["notificationcheck"] == 'Enabled':
         settings["notify"] = True
-
-    if values["reportcheck"] == "true":
-        settings["report"] = False
     else:
+        settings["notify"] = False
+
+    if values["reportcheck"] == "Enabled":
         settings["report"] = True
+    else:
+        settings["report"] = False
 
     if values['persistent'] == 'Yes':
         if not os.path.isdir(os.path.realpath(os.path.dirname(__file__)) + "/settings"):
@@ -396,52 +396,47 @@ def update_settings(dialog, button_name, values):
             pickle.dump(settings, open(settings_location, "wb"))
         except OSError:
             engine.error("Could not save cache!")
-        
-
+    ## Test new settings (TODO: Make check blocking for update if creds are wrong)
     connection_test_wrapper()
 
 def update_settings_dialog():
+    global settings
     drows = {
         'username': 'neo4j',
-		'password': 'bloodhound',
-		'url' : 'http://localhost:7474',
-		'ignore_cache' : "false",
-		'report' : "false",
-		'notify' : "false",
-        'persistent': "Yes"
+		'password': 'bloodhound',        
     }
 
+    drows["url"] = settings["url"][:-27]
+    
+    # Overkill just because I want nice menus :D
+    if settings["ignore_cache"]:
+        drows["cachecheck"] = "Disabled"
+    else:
+        drows["cachecheck"] = "Enabled"
+
+    if settings["notify"]:
+        drows["notificationcheck"] = "Enabled"
+    else:
+        drows["notificationcheck"] = "Disabled"
+
+    if settings["report"]:
+        drows["reportcheck"] = "Enabled"
+    else:
+        drows["reportcheck"] = "Disabled"
+
+    drows["persistent"] = "Yes"
+    
     dialog = aggressor.dialog("pyCobaltHound settings", drows, update_settings)
     aggressor.dialog_description(dialog, "Update your pyCobaltHound settings")
     aggressor.drow_text(dialog, "username", "Neo4j username:  ")
     aggressor.drow_text(dialog, "password", "Neo4j password: ")
-    aggressor.drow_text(dialog, "url", "Neo4j URL")
-    aggressor.drow_checkbox(dialog, "cachecheck", "Disable cache")
-    aggressor.drow_checkbox(dialog, "notificationcheck", "Disable notifications")
-    aggressor.drow_checkbox(dialog, "reportcheck", "Disable reporting")
+    aggressor.drow_text(dialog, "url", "Neo4j URL (http://server:port)")
+    aggressor.drow_combobox(dialog, "cachecheck", "Caching", ["Enabled", "Disabled"])
+    aggressor.drow_combobox(dialog, "notificationcheck", "Notifications", ["Enabled", "Disabled"])
+    aggressor.drow_combobox(dialog, "reportcheck", "Reporting", ["Enabled", "Disabled"])
     aggressor.drow_combobox(dialog, "persistent", "Save settings persistently", ["Yes", "No"])
     aggressor.dbutton_action(dialog, "Update")
     aggressor.dialog_show(dialog)
-
-def check_settings():
-    messagebox = "Neo4j URL: " + settings["url"] + "\n"
-    
-    if settings["ignore_cache"]:
-        messagebox = messagebox + "☑ " + "Caching is disabled" + "\n"
-    else:
-        messagebox = messagebox + "☒ " + "Caching is enabled" + "\n"
-
-    if settings["notify"]:
-        messagebox = messagebox + "☑ " + "Notifications are enabled" + "\n"
-    else:
-        messagebox = messagebox + "☒ " + "Notifications are disabled" + "\n"
-
-    if settings["report"]:
-        messagebox = messagebox + "☑ " + "Reporting is enabled" + "\n"
-    else:
-        messagebox = messagebox + "☒ " + "Reporting is disabled" + "\n"
-    
-    aggressor.show_message(messagebox[:-1])
 
 def update_queries(dialog, button_name, values):
     global user_queries
@@ -558,10 +553,7 @@ def check_queries_choice_dialog():
 menu = gui.popup('aggressor', callback=aggressor_empty_callback, children=[
     gui.menu('pyCobaltHound', children=[
         gui.insert_menu('pyCobaltHound_top'),
-        gui.menu('Settings', children=[
-            gui.item("Update settings", callback=update_settings_dialog),
-            gui.item("Check settings", callback=check_settings),
-        ]),
+        gui.item("Settings", callback=update_settings_dialog),
         gui.menu('Queries', children=[
             gui.item('Update queries', callback=update_queries_choice_dialog),
             gui.item("Check queries", callback=check_queries_choice_dialog)
