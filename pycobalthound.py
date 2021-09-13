@@ -3,6 +3,7 @@
 # So we can use the repo copy of pycobalt
 import sys
 import os
+from netaddr.ip import cidr_merge
 sys.path.insert(0, os.path.realpath(os.path.dirname(__file__)) + '/pycobalt')
 
 # Importing the required regular libraries
@@ -554,10 +555,8 @@ def add_query(dialog, button_name, values):
     if values["type"] == "Computer":
         computer_queries.append(new_query)
         if values["persistent"] == "Yes":
-            with open(computer_queries, "w") as json_file:
+            with open(computer_queries_location, "w") as json_file:
                 json.dump(computer_queries, json_file, indent=4)
-
-    engine.message(new_query)
 
 def add_query_dialog():
     drows = {
@@ -576,9 +575,69 @@ def add_query_dialog():
     aggressor.drow_text(dialog, "report", "Report headline")
     aggressor.drow_combobox(dialog, "enabled", "Status", ["Enabled", "Disabled"])
     aggressor.drow_combobox(dialog, "type", "Query type", ["User", "Computer"])
-    aggressor.drow_combobox(dialog, "persistent", "Save settings persistently", ["Yes", "No"])
+    aggressor.drow_combobox(dialog, "persistent", "Save query persistently", ["Yes", "No"])
     aggressor.dbutton_action(dialog, "Add")
     aggressor.dialog_show(dialog)
+
+# remove query menu
+def remove_query(dialog, button_name, values):
+    global user_queries
+    global computer_queries
+
+    if values["type"] == "User":
+        user_queries = [query for query in user_queries if not (query["custom"] == "True" and values[query["name"]] == "Delete")]
+        if values["persistent"] == "Yes":
+            with open(user_queries_location, "w") as json_file:
+                json.dump(user_queries, json_file, indent=4)
+
+    if values["type"] == "Computer":
+        computer_queries = [query for query in computer_queries if not (query["custom"] == "True" and values[query["name"]] == "Delete")]
+        if values["persistent"] == "Yes":
+            with open(computer_queries_location, "w") as json_file:
+                json.dump(computer_queries, json_file, indent=4)
+
+def remove_query_dialog(dialog, button_name, values):
+    drows = {}
+    custom_query_exists = False
+
+    if values["type"] == "User":
+        queries = user_queries
+    else:
+        queries = computer_queries
+    
+    # check if there is a custom query defined
+    for query in queries:
+        if query["custom"] == "True":
+            custom_query_exists = True
+    
+    if custom_query_exists:
+        dialog = aggressor.dialog("Remove a custom query", drows, remove_query)
+        aggressor.dialog_description(dialog, "Which query do you want to remove?")
+        for query in queries:
+            if query["custom"] == "True":
+                drows[query["name"]] = "Keep"
+                aggressor.drow_combobox(dialog, query["name"], query["name"], ["Keep", "Delete"])
+        drows["persistent"] = "Yes"
+        drows["type"] = values["type"]
+        aggressor.drow_combobox(dialog, "persistent", "Delete query permanently", ["Yes", "No"])
+        # Ugly hack to pass query type to the next function
+        aggressor.drow_combobox(dialog, "type", "Query type", [values["type"]])
+        aggressor.dbutton_action(dialog, "Delete")
+        aggressor.dialog_show(dialog)
+    else:
+        aggressor.show_error("There are no custom " + values["type"].lower() + " queries to delete!")
+
+def remove_query_choice_dialog():
+    drows = {
+        'type': "User"
+    }
+
+    dialog = aggressor.dialog("Query selection", drows, remove_query_dialog)
+    aggressor.dialog_description(dialog, "Which type of query do you want to remove?")
+    aggressor.drow_combobox(dialog, "type", "Query  type", ["User", "Computer"])
+    aggressor.dbutton_action(dialog, "Choose")
+    aggressor.dialog_show(dialog)
+
 
 # menu layout    
 menu = gui.popup("aggressor", callback=aggressor_empty_callback, children=[
@@ -588,7 +647,7 @@ menu = gui.popup("aggressor", callback=aggressor_empty_callback, children=[
         gui.menu("Queries", children=[
             gui.item("Update queries", callback=update_queries_choice_dialog),
             gui.item("Add query", callback=add_query_dialog),
-            gui.item("Remove query", callback=aggressor_empty_callback)
+            gui.item("Remove query", callback=remove_query_choice_dialog)
         ]),
         gui.item("Wipe cache", callback=wipe_cache_dialog),
         gui.item("Recalculate", callback=recalculate)
