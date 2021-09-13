@@ -388,7 +388,7 @@ def update_settings(dialog, button_name, values):
     else:
         settings["report"] = True
 
-    if values['persistent'] == 'yes':
+    if values['persistent'] == 'Yes':
         if not os.path.isdir(os.path.realpath(os.path.dirname(__file__)) + "/settings"):
             os.makedirs(os.path.realpath(os.path.dirname(__file__)) + "/settings")
         try:
@@ -408,7 +408,7 @@ def update_settings_dialog():
 		'ignore_cache' : "false",
 		'report' : "false",
 		'notify' : "false",
-        'persistent': "yes"
+        'persistent': "Yes"
     }
 
     dialog = aggressor.dialog("pyCobaltHound settings", drows, update_settings)
@@ -419,7 +419,7 @@ def update_settings_dialog():
     aggressor.drow_checkbox(dialog, "cachecheck", "Disable cache")
     aggressor.drow_checkbox(dialog, "notificationcheck", "Disable notifications")
     aggressor.drow_checkbox(dialog, "reportcheck", "Disable reporting")
-    aggressor.drow_combobox(dialog, "persistent", "Save settings persistently", ["yes", "no"])
+    aggressor.drow_combobox(dialog, "persistent", "Save settings persistently", ["Yes", "No"])
     aggressor.dbutton_action(dialog, "Update")
     aggressor.dialog_show(dialog)
 
@@ -427,22 +427,134 @@ def check_settings():
     messagebox = "Neo4j URL: " + settings["url"] + "\n"
     
     if settings["ignore_cache"]:
-        messagebox = messagebox + "Caching is disabled" + "\n"
+        messagebox = messagebox + "☑ " + "Caching is disabled" + "\n"
     else:
-        messagebox = messagebox + "Caching is enabled" + "\n"
+        messagebox = messagebox + "☒ " + "Caching is enabled" + "\n"
 
     if settings["notify"]:
-        messagebox = messagebox + "Notifications are enabled" + "\n"
+        messagebox = messagebox + "☑ " + "Notifications are enabled" + "\n"
     else:
-        messagebox = messagebox + "Notifications are disabled" + "\n"
+        messagebox = messagebox + "☒ " + "Notifications are disabled" + "\n"
 
     if settings["report"]:
-        messagebox = messagebox + "Reporting is enabled" + "\n"
+        messagebox = messagebox + "☑ " + "Reporting is enabled" + "\n"
     else:
-        messagebox = messagebox + "Reporting is disabled" + "\n"
+        messagebox = messagebox + "☒ " + "Reporting is disabled" + "\n"
     
     aggressor.show_message(messagebox[:-1])
 
+def update_queries(dialog, button_name, values):
+    global user_queries
+    global computer_queries
+
+    if values["type"] == "User":
+        engine.message("Updating user queries")
+        queries = user_queries
+        query_location = user_queries_location
+        
+        for query in queries:
+            if values[query["name"]] == "Enabled":
+                query["enabled"] = "True"
+
+            else:
+                query["enabled"] = "False"
+
+        user_queries = queries
+
+        if values["persistent"] == "Yes":
+            with open(query_location, "w") as json_file:
+                json.dump(user_queries, json_file, indent=4)
+    else:
+        engine.message("Updating computer queries")
+        queries = computer_queries
+        query_location = computer_queries_location  
+        
+        for query in queries:
+            if values[query["name"]] == "Enabled":
+                query["enabled"] = "True"
+
+            else:
+                query["enabled"] = "False"
+        
+        computer_queries = queries
+
+        if values["persistent"] == "Yes":
+            with open(query_location, "w") as json_file:
+                json.dump(user_queries, json_file, indent=4)
+
+
+def update_queries_dialog(dialog, button_name, values):
+    predrows = []
+    drows = {}
+
+    if values["type"] == "User":
+        queries = user_queries
+    else:
+        queries = computer_queries
+
+    for query in queries:
+        dict = {"name": query["name"], "enabled": query["enabled"]}
+        predrows.append(dict)
+    
+    for predrow in predrows:
+        # Overkill just because I want nice menus :D
+        if predrow["enabled"] == "True":
+            state = "Enabled"
+            opposite = "Disabled"
+        else:
+            state = "Disabled"
+            opposite = "Enabled"
+        
+        drows[predrow["name"]] = state
+
+    dialog = aggressor.dialog("Query selection", drows, update_queries)
+    for drow in drows:
+        
+        aggressor.drow_combobox(dialog, drow, drow, ["Enabled", "Disabled"])
+    
+    drows["persistent"] = "Yes"
+    drows["type"] = values["type"]
+    aggressor.drow_combobox(dialog, "persistent", "Save settings persistently", ["Yes", "No"])
+    # Ugly hack to pass query type to the next function
+    aggressor.drow_combobox(dialog, "type", "Query type", [values["type"]])
+    aggressor.dbutton_action(dialog, "Update")
+    aggressor.dialog_show(dialog)
+
+def update_queries_choice_dialog():
+    drows = {
+        'type': "User"
+    }
+
+    dialog = aggressor.dialog("Query selection", drows, update_queries_dialog)
+    aggressor.dialog_description(dialog, "Which type of query do you want to update?")
+    aggressor.drow_combobox(dialog, "type", "Query  type", ["User", "Computer"])
+    aggressor.dbutton_action(dialog, "Choose")
+    aggressor.dialog_show(dialog)
+
+def check_queries(dialog, button_name, values):
+    messagebox= ''
+    if values["type"] == "User":
+        for query in user_queries:
+            if query["enabled"] == "True":
+                messagebox = messagebox + "☑ " + query["name"] + " is enabled" + "\n"
+            else:
+                messagebox = messagebox + "☒ " + query["name"] + " is disabled" + "\n"
+    aggressor.show_message(messagebox[:-1])
+
+
+def check_queries_choice_dialog():
+    drows = {
+        'type': "User"
+    }
+
+    dialog = aggressor.dialog("Query selection", drows, check_queries)
+    aggressor.dialog_description(dialog, "Which type of query do you want to check?")
+    aggressor.drow_combobox(dialog, "type", "Query  type", ["User", "Computer"])
+    aggressor.dbutton_action(dialog, "Choose")
+    aggressor.dialog_show(dialog)
+
+
+    
 menu = gui.popup('aggressor', callback=aggressor_empty_callback, children=[
     gui.menu('pyCobaltHound', children=[
         gui.insert_menu('pyCobaltHound_top'),
@@ -451,14 +563,8 @@ menu = gui.popup('aggressor', callback=aggressor_empty_callback, children=[
             gui.item("Check settings", callback=check_settings),
         ]),
         gui.menu('Queries', children=[
-            gui.menu('User queries', children=[
-                gui.item('Update queries', callback=update_settings_dialog),
-                gui.item("Check queries", callback=check_settings),
-            ]),
-            gui.menu('Computer queries', children=[
-                gui.item('Update queries', callback=update_settings_dialog),
-                gui.item("Check queries", callback=check_settings),
-            ]),
+            gui.item('Update queries', callback=update_queries_choice_dialog),
+            gui.item("Check queries", callback=check_queries_choice_dialog)
         ]),
         gui.item("Wipe cache", callback=wipe_cache_dialog),
         gui.item("Recalculate", callback=recalculate)
