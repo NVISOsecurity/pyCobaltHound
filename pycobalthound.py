@@ -66,7 +66,7 @@ with open(user_queries_location, "r") as json_file:
 with open(computer_queries_location, "r") as json_file:
     computer_queries = json.load(json_file)
 
-# Check if Notify2 is installed
+# Check if Notify2 is installed, default to native notifications if not
 def check_notify2():
     try:
         import notify2
@@ -77,7 +77,6 @@ def check_notify2():
         return False
 check_notify2()
 
-engine.message(json.dumps(settings, indent=4))  
 # Functions
 # Cypher query functions
 def do_sync_cypher(query):
@@ -372,6 +371,45 @@ def wipe_cache_dialog():
 def recalculate():
     aggressor.fireEvent('credentials', aggressor.credentials())
 
+# investigate menu
+def investigate(dialog, button_name, values):
+    targets = []
+    parsed_targets = values["targets"].split(",")
+
+    if values["domain_included"] == "Yes":
+        for target in parsed_targets:
+            entity = (target.strip()).upper()
+            targets.append({"user": entity.partition("@")[0], "realm": entity.partition("@")[2]})
+    else:
+        for target in parsed_targets:
+            entity = (target.strip()).upper()
+            targets.append({"user": entity, "realm": values["domain"]})
+    
+    if values["report"] == "true":
+        report = True
+    else:
+        report = False
+
+    credential_action(targets, False, report)
+
+def investigate_dialog():
+    drows = {
+        "targets": "user1, user2, user3",
+        "domain_included": "No",
+        "domain": "CONTOSO.LOCAL",
+        "report": "false"
+    }
+
+    domains = get_domains()
+    dialog = aggressor.dialog("Investigate", drows, investigate)
+    aggressor.dialog_description(dialog, "Investigate entities")
+    aggressor.drow_text_big(dialog, "targets", "Targets")
+    aggressor.drow_combobox(dialog, "domain_included", "Domain included", ["Yes", "No"])
+    aggressor.drow_combobox(dialog, "domain", 'Domain', domains)
+    aggressor.drow_checkbox(dialog, "report", "Generate a report")
+    aggressor.dbutton_action(dialog, "Investigate")
+    aggressor.dialog_show(dialog)
+
 # settings menu
 def aggressor_empty_callback():
     engine.debug('')
@@ -658,6 +696,7 @@ def remove_query_choice_dialog():
 menu = gui.popup("aggressor", callback=aggressor_empty_callback, children=[
     gui.menu("pyCobaltHound", children=[
         gui.insert_menu('pyCobaltHound_top'),
+        gui.item("Investigate", callback=investigate_dialog),
         gui.item("Settings", callback=update_settings_dialog),
         gui.menu("Queries", children=[
             gui.item("Update queries", callback=update_queries_choice_dialog),
@@ -704,7 +743,7 @@ credential_menu = gui.popup('credentials', callback=credentials_empty_callback, 
 def beacons_empty_callback(values):
     engine.debug('')
 
-def investigate_action(dialog, button_name, values):
+def beacon_investigate(dialog, button_name, values):
     beacons = aggressor.beacons()
     target_beacons = values["beacons"]
     targets = []
@@ -744,10 +783,14 @@ def investigate_action(dialog, button_name, values):
             if values["investigate"] == "Computer":
                 targets.append({'user': computer, 'realm': values["domain"]})
     
-    engine.message(values["report"])
-    credential_action(targets, False)
+    if values["report"] == "true":
+        report = True
+    else:
+        report = False
 
-def investigate_dialog(values):
+    credential_action(targets, False, report)
+
+def beacon_investigate_dialog(values):
     drows = {
         "beacons": values,
         "investigate": "Both",
@@ -758,8 +801,8 @@ def investigate_dialog(values):
     investigate = ['Both', 'User', 'Computer']
     domains = get_domains()
 
-    dialog = aggressor.dialog("Investigate", drows, investigate_action)
-    aggressor.dialog_description(dialog, "Investigate users & computers")
+    dialog = aggressor.dialog("Investigate", drows, beacon_investigate)
+    aggressor.dialog_description(dialog, "Investigate beacons")
     aggressor.drow_combobox(dialog, "investigate", "Investigate", investigate)
     aggressor.drow_combobox(dialog, "domain", 'Domain', domains)
     aggressor.drow_checkbox(dialog, "report", "Generate a report")
@@ -839,7 +882,7 @@ beacon_menu = gui.popup('beacon', callback=beacons_empty_callback, children=[
     gui.menu('pyCobaltHound', children=[
         gui.insert_menu('pyCobaltHound_top'),
         gui.item("Mark as owned", callback=mark_owned_dialog),
-        gui.item("Investigate", callback=investigate_dialog)
+        gui.item("Investigate", callback=beacon_investigate_dialog)
     ])
 ])
 
@@ -847,9 +890,6 @@ beacon_menu = gui.popup('beacon', callback=beacons_empty_callback, children=[
 gui.register(menu)
 gui.register(credential_menu)
 gui.register(beacon_menu)
-
-def test():
-    engine.message(test)
 
 # Reacting to the "on credentials" event in Cobalt Strike
 @events.event('credentials')
