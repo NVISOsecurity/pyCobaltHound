@@ -242,7 +242,7 @@ During some of its workflows, `pyCobaltHound` will generate an HTML report. This
 
 Managing the various queries that `pyCobaltHound` uses can be done through the main menu (`Cobalt Strike` > `pyCobaltHound` > `Queries`).
 
-![](/home/kali/Desktop/pycobalthound/images/aggressor_menu_with_queries.png)
+![](./images/aggressor_menu_with_queries.png)
 
 #### Enabling/Disabling queries
 
