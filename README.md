@@ -216,7 +216,9 @@ By default, `pyCobaltHound` will notify the operator using the default Aggressor
 
 ##### Notify2 notifications
 
-![](/home/kali/Desktop/pycobalthound/images/aggressor_notify_pynotify.png)
+`pyCobaltHound` also supports displaying desktop notifications on Linux. I prefer this since it does not interrupt the operators workflow.
+
+![](./images/aggressor_notify_pynotify.png)
 
 #### Reporting
 
