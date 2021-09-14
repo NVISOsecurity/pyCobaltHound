@@ -50,7 +50,7 @@ else:
         "ignore_cache": False,
         "report": True,
         "notify": True,
-        "notifytype": "pyNotify",
+        "notifytype": "Native",
         "url": "http://localhost:7474/db/data/transaction/commit",
         "headers": { "Accept": "application/json; charset=UTF-8",
         "Content-Type": "application/json",
@@ -310,6 +310,7 @@ def connection_test_wrapper():
 
 # Main parsing and query logic
 def credential_action(credentials, event=True, report=True):
+    engine.message("Investigation started!")
     reportpath = ""
     if connection_test_wrapper():
         # Transforming data and checking validity
@@ -351,6 +352,7 @@ def credential_action(credentials, event=True, report=True):
                     reportpath = generate_report(user_results, computer_results)
             if settings['notify']:
                 notify_operator(user_results, computer_results, reportpath)
+    engine.message("Investigation ended!")
 
 # Test Neo4j connection on load
 connection_test_wrapper()
@@ -367,8 +369,8 @@ def wipe_cache(values):
 def wipe_cache_dialog():
     aggressor.prompt_confirm("Are you sure you want to wipe the cache? If you do so, pyCobaltHound will query every compromised user again upon its next run", "Wipe cache", wipe_cache)
 
-# recalculate menu
-def recalculate():
+# re-evaluate menu
+def reevaluate():
     aggressor.fireEvent('credentials', aggressor.credentials())
 
 # investigate menu
@@ -614,7 +616,7 @@ def add_query(dialog, button_name, values):
 def add_query_dialog():
     drows = {
         "name": "name of your query",
-        "statement": "{statement} ... RETURN DISTINCT(x.name)",
+        "statement": "{statement} MATCH (x) WHERE x.name STARTS WITH names [insert cypher] RETURN DISTINCT(x.name)",
         "report": "{number} entity(s) has/have a path to target.",
         "enabled": "Enabled",
         "type": "User",
@@ -704,7 +706,7 @@ menu = gui.popup("aggressor", callback=aggressor_empty_callback, children=[
             gui.item("Remove query", callback=remove_query_choice_dialog)
         ]),
         gui.item("Wipe cache", callback=wipe_cache_dialog),
-        gui.item("Recalculate", callback=recalculate)
+        gui.item("Reevaluate", callback=reevaluate)
     ])
 ])
 
@@ -798,7 +800,7 @@ def beacon_investigate_dialog(values):
         "report": "false"
     }
 
-    investigate = ['Both', 'User', 'Computer']
+    investigate = ['Both', 'Both without logic', 'User', 'Computer']
     domains = get_domains()
 
     dialog = aggressor.dialog("Investigate", drows, beacon_investigate)
@@ -842,7 +844,7 @@ def mark_owned_action(dialog, button_name, values):
             computer = computer.upper() + "$"
 
             # Add to list of objects to be marked
-            if values["nodetype"] == "Default":
+            if values["nodetype"] == "Both":
                 if system:
                     targets.append({'user': computer, 'realm': values["domain"]})
                 elif admin:
@@ -864,11 +866,11 @@ def mark_owned_action(dialog, button_name, values):
 def mark_owned_dialog(values):
     drows = {
         "beacons": values,
-        "nodetype": "Default",
+        "nodetype": "Both",
         "domain": "CONTOSO.LOCAL"
     }
 
-    nodetypes = ['Default', 'User', 'Computer']
+    nodetypes = ['Both', 'User', 'Computer']
     domains = get_domains()
 
     dialog = aggressor.dialog("Mark as owned", drows, mark_owned_action)
