@@ -20,7 +20,7 @@ To install `pyCobaltHound` clone this repository. Do not forget to also clone th
 
 You can use the following command:
 
-- `git clone https://github.com/A32AN/pyCobaltHound.git --recurse-submodules`
+- `git clone https://github.com/NVISO-ARES/pyCobaltHound.git --recurse-submodules`
 
 ### Dependencies
 
