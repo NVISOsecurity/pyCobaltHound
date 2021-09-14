@@ -262,7 +262,7 @@ The query type option is an ugly workaround to pass the query type to the next f
 
 The *Add query* functionality allows operators to add/remove their own queries to fine tune `pyCobaltHound's` investigation capabilities. This grants them the flexibility to adapt `pyCobaltHound` on the fly during engagements to account for engagement-specific targets (users, hosts etc..).
 
-![](/home/kali/Desktop/pycobalthound/images/aggressor_query_add.png)
+![](./images/aggressor_query_add.png)
 
 This dialog will ask the operator for the following information:
 
