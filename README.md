@@ -12,7 +12,7 @@
 - Automatically marking compromised users and computers as owned. 
 - Allowing operators to quickly and easily investigate the escalation potential of beacon sessions and users.
 
-To accomplish this, `pyCobaltHound` uses a set of build-in queries. Operators are also able to add/remove their own queries to fine tune `pyCobaltHound's` monitoring capabilities. This grants them the flexibility to adapt `pyCobaltHound` on the fly during engagements to account for engagement-specific targets (users, hosts etc..).
+To accomplish this, `pyCobaltHound` uses a set of built-in queries. Operators are also able to add/remove their own queries to fine tune `pyCobaltHound's` monitoring capabilities. This grants them the flexibility to adapt `pyCobaltHound` on the fly during engagements to account for engagement-specific targets (users, hosts etc..).
 
 ## Installation & usage
 
@@ -88,7 +88,7 @@ When this event is fired, `pyCobaltHound` will:
 3. Add the entities to a cache for future runs
 4. Check if the entities exist in the `BloodHound` database
 5. Mark the entities as owned
-6. Query the `BloodHound` database for each new entity using both build-in and custom queries.
+6. Query the `BloodHound` database for each new entity using both built-in and custom queries.
 7. Parse the returned results, notify the operator of any interesting findings and write them to a basic HTML report.
 
 Since all of this takes place asynchronously from the main `Cobalt Strike` client this process should not block your UI so you can keep working while `pyCobaltHound` investigates away in the background.
@@ -138,7 +138,7 @@ This dialog will ask the operator for the following information:
   - **User:** If this is selected the user associated to the beacon context will be marked as owned.
   - **Computer:** If this is selected the computer associated to the beacon context will be marked as owned, regardless of the integrity level of  the associated session.
 - **Domain**
-  - Since a beacons context does not contain any reference to the domain, operators need to specify this themselves 
+  - Since a beacon's context does not contain any reference to the domain, operators need to specify this themselves 
 
 #### Investigation
 
@@ -228,9 +228,9 @@ During some of its workflows, `pyCobaltHound` will generate an HTML report. This
 
 ## Queries
 
-### Build-in queries
+### Built-in queries
 
-`pyCobaltHound` currently supports the following build-in queries:
+`pyCobaltHound` currently supports the following built-in queries:
 
 - **User** **(user-queries.json)**
   - Path to Domain Admins
@@ -279,7 +279,7 @@ This dialog will ask the operator for the following information:
         - I recommend filtering (e.g `(x:User)`) depending on which query type you are adding.
     - `pyCobaltHound` expects the query to return a distinct set of usernames.
       - To do so, end your query with `RETURN DISTINCT (x.name)`
-    - For some examples, refer to the build-in queries.
+    - For some examples, refer to the built-in queries.
 - **Report headline**
   - The headline that `pyCobaltHound` uses for the custom query. This will be used in  notifications & reports during `pyCobaltHounds` workflows.
     - The only requirement is the the sentence contains a **{number}** placeholder which `pyCobaltHound` will replace with the amount of results for this query.
@@ -308,7 +308,7 @@ The query type option is an ugly workaround to pass the query type to the next f
 
 - [ ] Separate query JSON files per teamserver
 - [ ] Code cleanup
-- [ ] More build-in queries
+- [ ] More built-in queries
 - [ ] A clean function that removes each cache, settings and report file generated for a specific teamserver
 - [ ] Allow operators to limit the amount of HTML reports generated
 - [ ] Take a look at data/entities collected by AzureHound
