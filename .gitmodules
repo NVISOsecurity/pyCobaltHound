@@ -1,0 +1,3 @@
+[submodule "pycobalt"]
+	path = pycobalt
+	url = https://github.com/NVISOsecurity/pycobalt.git

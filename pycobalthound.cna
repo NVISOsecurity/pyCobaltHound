@@ -1,0 +1,3 @@
+$pycobalt_path = script_resource('pycobalt/aggressor/');
+include($pycobalt_path . '/pycobalt.cna');
+python(script_resource('pycobalthound.py'));

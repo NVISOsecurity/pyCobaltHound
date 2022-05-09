@@ -1,0 +1,9 @@
+[
+    {
+        "name": "path_to_hvt",
+        "query": "{statement} MATCH (u:Computer) WHERE u.name STARTS WITH names MATCH (n {{highvalue:true}}),p=shortestPath((u)-[r*1..]->(n)) WHERE NONE (r IN relationships(p) WHERE type(r)= 'GetChanges') AND NONE (r in relationships(p) WHERE type(r)='GetChangesAll') AND NOT n.objectid ENDS WITH '-512' AND NOT u=n RETURN DISTINCT(u.name)",
+        "report": "{number} computer(s) has/have a path to a high value target.",
+        "enabled": "True",
+        "custom": "False"
+    }
+]
