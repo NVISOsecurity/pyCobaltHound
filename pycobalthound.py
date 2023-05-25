@@ -929,7 +929,7 @@ def beacon_investigate(dialog, button_name, values):
                 system = True
             # This will exclude the "Administrator" DA in AD too, but I guess you don't need to investigate if you've got a high integrity beacon as that :)
             elif user == "Administrator *":
-                system == True
+                system = True
             else:
                 system = False
 
@@ -1000,7 +1000,7 @@ def mark_owned_action(dialog, button_name, values):
             if user == "SYSTEM *":
                 system = True
             elif user == "Administrator *":
-                system == True
+                system = True
             else:
                 system = False
             # Format user/computer names
