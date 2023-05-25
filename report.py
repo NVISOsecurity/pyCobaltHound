@@ -1,5 +1,4 @@
 import os
-import sys
 import time
 # HTML templates
 
@@ -95,6 +94,7 @@ def parse_results(user_results, computer_results):
   return html
 
 def generate_html_report(user_results, computer_results):
+  report = ''
   if all(len(result['result']) == 0 for result in user_results) == False or all(len(result['result']) == 0 for result in computer_results) == False:
     inner_html = parse_results(user_results, computer_results)
     report = top + title + time.strftime("%Y-%m-%d %H:%M:%S") + '</h3>' + inner_html + bot
